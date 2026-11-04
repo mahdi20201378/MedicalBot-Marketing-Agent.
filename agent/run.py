@@ -10,7 +10,7 @@ OUT = ROOT / "output"
 OUT.mkdir(exist_ok=True)
 
 def clean(s):
-    return re.sub(r"\\s+", " ", re.sub(r"<[^>]+>", " ", s or "")).strip()
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", s or "")).strip()
 
 def fetch_feed(url):
     req = urllib.request.Request(url, headers={"User-Agent": "MedicalBotMarketingResearch/1.0"})
