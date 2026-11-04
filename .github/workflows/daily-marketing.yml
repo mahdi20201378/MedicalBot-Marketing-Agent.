@@ -1,6 +1,9 @@
 name: On-demand content delivery
 
 on:
+  push:
+    paths:
+      - 'outbox/**'
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
