@@ -149,3 +149,11 @@ Prioritize qualified users and retention over raw impressions. Do not claim clin
 - [ ] Do not make claims of complete coverage, clinical validation, or guaranteed safety.
 - [ ] Review screenshots to ensure no user data, credentials, or private conversations are visible.
 - [ ] Obtain human approval before public posting.
+
+
+## 11. Suggested launch sequence
+
+1. Publish the Telegram introduction first.
+2. Share the Instagram carousel after checking each slide for readability.
+3. Publish the short-form video with the same scope disclosure.
+4. Review engagement and trial conversion before repeating the campaign.
