@@ -32,10 +32,10 @@ jobs:
             exit 0
           fi
           FILE=$(ls -t output/daily-*.md | head -1)
-          curl --fail-with-body --silent --show-error \\
-            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \\
-            -F "chat_id=${TELEGRAM_CHAT_ID}" \\
-            -F "document=@${FILE};type=text/markdown" \\
+          curl --fail-with-body --silent --show-error \
+            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${TELEGRAM_CHAT_ID}" \
+            -F "document=@${FILE};type=text/markdown" \
             -F "caption=Daily MedicalBot marketing report — $(date -u +%F). Drafts require your review before publishing."
       - name: Create approval issue
         env:
