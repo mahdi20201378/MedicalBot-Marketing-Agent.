@@ -1,22 +1,25 @@
 name: On-demand content delivery
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'outbox/*.md'
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: marketing-outbox-delivery
+  cancel-in-progress: false
 
 jobs:
   deliver-new-content:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out the committed content
+      - name: Check out repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          fetch-depth: 0
 
       - name: Validate Telegram configuration
         env:
@@ -26,22 +29,42 @@ jobs:
           test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing TELEGRAM_BOT_TOKEN"; exit 1; }
           test -n "$TELEGRAM_CHAT_ID" || { echo "Missing TELEGRAM_CHAT_ID"; exit 1; }
 
-      - name: Deliver newly committed Markdown files
+      - name: Deliver pending Markdown files and archive them
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           set -euo pipefail
-          mapfile -t files < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -E '^outbox/[^/]+\.md$' || true)
+          shopt -s nullglob
+          files=(outbox/*.md)
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "No new outbox Markdown files found."
+            echo "Outbox is empty; nothing to deliver."
             exit 0
           fi
+
+          mkdir -p sent
           for file in "${files[@]}"; do
+            name="$(basename "$file")"
             echo "Sending $file"
-            curl --fail-with-body --silent --show-error \
+            response="$(curl --fail-with-body --silent --show-error \
               -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
               -F "chat_id=${TELEGRAM_CHAT_ID}" \
               -F "document=@${file};type=text/markdown" \
-              -F "caption=ChatGPT-created marketing content — please review before publishing."
+              -F "caption=ChatGPT-created marketing content — please review before publishing.")"
+            echo "$response" | python -c 'import json,sys; d=json.load(sys.stdin); assert d.get("ok") is True, d'
+            mv "$file" "sent/$name"
+            echo "Telegram confirmed delivery; archived sent/$name"
           done
+
+      - name: Save delivery archive
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- sent outbox; then
+            echo "No delivered files to archive."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sent outbox
+          git commit -m "Archive delivered marketing content"
+          git push
