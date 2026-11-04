@@ -7,9 +7,10 @@ An on-demand, human-reviewed content delivery bridge for **@MedicalSourcesHelper
 1. The owner requests a campaign, Telegram post, Instagram caption/carousel, Reel script, SEO article, or outreach email in ChatGPT.
 2. ChatGPT creates the actual content in the conversation using its own model and, when useful, connected research tools. This repository does not call a paid AI API.
 3. After the owner approves content for Telegram delivery, ChatGPT commits a Markdown file to the `outbox/` folder through the connected GitHub integration.
-4. A GitHub Actions workflow starts automatically on that commit and sends the file to the Telegram chat configured by `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+4. GitHub Actions checks the outbox every five minutes and sends pending Markdown files to the Telegram chat configured by `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+5. After Telegram confirms a successful send, the workflow moves the file from `outbox/` to `sent/` to prevent routine repeat delivery.
 
-The owner should not need to create GitHub issues or manually copy/paste the content. Each delivery uses a new Markdown file under `outbox/`.
+The owner should not need to create GitHub issues or manually copy/paste the content. Delivery is normally within about five minutes of a new outbox file being committed; GitHub may delay scheduled runs.
 
 ## Important boundaries
 
