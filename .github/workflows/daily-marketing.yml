@@ -1,20 +1,23 @@
 name: On-demand content delivery
 
 on:
-  issues:
-    types: [opened]
+  push:
+    branches: [main]
+    paths:
+      - 'outbox/*.md'
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
-  deliver-approved-owner-request:
-    if: >-
-      github.event.issue.user.login == 'mahdi20201378' &&
-      startsWith(github.event.issue.title, 'SEND TO TELEGRAM:')
+  deliver-new-content:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the committed content
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
       - name: Validate Telegram configuration
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -23,32 +26,22 @@ jobs:
           test -n "$TELEGRAM_BOT_TOKEN" || { echo "Missing TELEGRAM_BOT_TOKEN"; exit 1; }
           test -n "$TELEGRAM_CHAT_ID" || { echo "Missing TELEGRAM_CHAT_ID"; exit 1; }
 
-      - name: Deliver requested content as a Markdown file
+      - name: Deliver newly committed Markdown files
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          python - <<'PY'
-          import os
-          from pathlib import Path
-          title = os.environ.get("ISSUE_TITLE", "Marketing content")
-          body = os.environ.get("ISSUE_BODY", "")
-          Path("requested-content.md").write_text(f"# {title}\n\n{body}\n", encoding="utf-8")
-          if not body.strip():
-              raise SystemExit("Issue body is empty; refusing to send.")
-          PY
-          curl --fail-with-body --silent --show-error \
-            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
-            -F "chat_id=${TELEGRAM_CHAT_ID}" \
-            -F "document=@requested-content.md;type=text/markdown" \
-            -F "caption=Requested marketing content — review before publishing."
-
-      - name: Mark request as delivered
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          gh issue comment "$ISSUE_NUMBER" --body "Delivered to the configured Telegram chat as a Markdown file."
-          gh issue close "$ISSUE_NUMBER"
+          set -euo pipefail
+          mapfile -t files < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -E '^outbox/[^/]+\.md$' || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No new outbox Markdown files found."
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            echo "Sending $file"
+            curl --fail-with-body --silent --show-error \
+              -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${TELEGRAM_CHAT_ID}" \
+              -F "document=@${file};type=text/markdown" \
+              -F "caption=ChatGPT-created marketing content — please review before publishing."
+          done
